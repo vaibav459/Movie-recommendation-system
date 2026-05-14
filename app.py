@@ -1,5 +1,6 @@
 import pickle
 import os
+import html
 import streamlit as st
 import requests
 import joblib
@@ -87,7 +88,10 @@ def fetch_poster(movie_id):
     return full_path
 
 def recommend(movie):
-    index = movies[movies['title'] == movie].index[0]
+    movie_index = movies[movies['title'] == movie].index
+    if movie_index.empty:
+        return [], []
+    index = movie_index[0]
     distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
     recommended_movie_names = []
     recommended_movie_posters = []
@@ -122,19 +126,24 @@ if not TMDB_API_KEY:
 
 if st.button('Show Recommendation'):
     recommended_movie_names, recommended_movie_posters = recommend(selected_movie)
-    st.balloons()
-    columns = st.columns(5)
-    for i, column in enumerate(columns):
-        with column:
-            st.markdown(
-                f"""
-                <div>
-                    <img class="movie-poster" src="{recommended_movie_posters[i]}" alt="{recommended_movie_names[i]}">
-                    <div class="movie-title">{recommended_movie_names[i]}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+    if not recommended_movie_names:
+        st.error("Unable to generate recommendations for the selected movie.")
+    else:
+        st.balloons()
+        columns = st.columns(5)
+        for i, column in enumerate(columns):
+            with column:
+                safe_title = html.escape(recommended_movie_names[i], quote=True)
+                safe_poster = html.escape(recommended_movie_posters[i], quote=True)
+                st.markdown(
+                    f"""
+                    <div>
+                        <img class="movie-poster" src="{safe_poster}" alt="{safe_title}">
+                        <div class="movie-title">{safe_title}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
 
 
