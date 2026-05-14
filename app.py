@@ -70,10 +70,11 @@ def load_movies():
 def load_similarity():
     return joblib.load("similarity_compressed.joblib")
 
+@st.cache_data
 def fetch_poster(movie_id):
     if not TMDB_API_KEY:
         return POSTER_PLACEHOLDER_URL
-    url = "https://api.themoviedb.org/3/movie/{}".format(movie_id)
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}"
     params = {"api_key": TMDB_API_KEY, "language": "en-US"}
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -84,7 +85,7 @@ def fetch_poster(movie_id):
     poster_path = data.get('poster_path')
     if not poster_path:
         return POSTER_PLACEHOLDER_URL
-    full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
+    full_path = f"https://image.tmdb.org/t/p/w500/{poster_path}"
     return full_path
 
 def recommend(movie):
