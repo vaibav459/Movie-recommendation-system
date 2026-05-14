@@ -1,18 +1,98 @@
 import pickle
+import os
+import html
 import streamlit as st
 import requests
 import joblib
+from streamlit_lottie import st_lottie
 
+st.set_page_config(page_title="Cinemate | Movie Recommender", page_icon="🍿", layout="wide")
+
+st.markdown(
+    """
+<style>
+.main-title {
+    font-size: 3rem;
+    text-align: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+
+.movie-poster {
+    width: 100%;
+    border-radius: 10px;
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.movie-poster:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.movie-title {
+    text-align: center;
+    font-weight: 600;
+    margin-top: 8px;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
+POSTER_PLACEHOLDER_URL = "https://via.placeholder.com/500x750?text=No+Poster"
+LOTTIE_URL = "https://assets10.lottiefiles.com/packages/lf20_khzniaya.json"
+
+
+@st.cache_data
+def load_lottie_url(url):
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except (requests.RequestException, ValueError):
+        return None
+
+
+@st.cache_data
+def load_movies():
+    with open("movies.pkl", "rb") as movie_file:
+        return pickle.load(movie_file)
+
+
+@st.cache_resource
+def load_similarity():
+    return joblib.load("similarity_compressed.joblib")
+
+@st.cache_data(max_entries=1000)
 def fetch_poster(movie_id):
-    url = "https://api.themoviedb.org/3/movie/{}?api_key=db437781100e3d385ed8dcdf48082812&language=en-US".format(movie_id)
-    data = requests.get(url)
-    data = data.json()
-    poster_path = data['poster_path']
-    full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
+    if not TMDB_API_KEY:
+        return POSTER_PLACEHOLDER_URL
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}"
+    params = {"api_key": TMDB_API_KEY, "language": "en-US"}
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return POSTER_PLACEHOLDER_URL
+    poster_path = data.get('poster_path')
+    if not poster_path:
+        return POSTER_PLACEHOLDER_URL
+    full_path = f"https://image.tmdb.org/t/p/w500/{poster_path}"
     return full_path
 
 def recommend(movie):
-    index = movies[movies['title'] == movie].index[0]
+    matching_indices = movies[movies['title'] == movie].index
+    if matching_indices.empty:
+        return [], []
+    index = matching_indices[0]
     distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
     recommended_movie_names = []
     recommended_movie_posters = []
@@ -22,12 +102,19 @@ def recommend(movie):
         recommended_movie_posters.append(fetch_poster(movie_id))
         recommended_movie_names.append(movies.iloc[i[0]].title)
 
-    return recommended_movie_names,recommended_movie_posters
+    return recommended_movie_names, recommended_movie_posters
 
 
-st.header('Movie Recommender System')
-movies = pickle.load(open('movies.pkl','rb'))
-similarity = joblib.load('similarity_compressed.joblib')
+movies = load_movies()
+similarity = load_similarity()
+
+header_col, animation_col = st.columns([3, 1])
+with header_col:
+    st.markdown('<h1 class="main-title">🎬 Cinemate Movie Recommender</h1>', unsafe_allow_html=True)
+with animation_col:
+    lottie_animation = load_lottie_url(LOTTIE_URL)
+    if lottie_animation:
+        st_lottie(lottie_animation, height=150, key="movie-lottie")
 
 movie_list = movies['title'].values
 selected_movie = st.selectbox(
@@ -35,25 +122,28 @@ selected_movie = st.selectbox(
     movie_list
 )
 
-if st.button('Show Recommendation'):
-    recommended_movie_names,recommended_movie_posters = recommend(selected_movie)
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.text(recommended_movie_names[0])
-        st.image(recommended_movie_posters[0])
-    with col2:
-        st.text(recommended_movie_names[1])
-        st.image(recommended_movie_posters[1])
+if not TMDB_API_KEY:
+    st.error("TMDB_API_KEY is not set. Placeholder posters will be shown.")
 
-    with col3:
-        st.text(recommended_movie_names[2])
-        st.image(recommended_movie_posters[2])
-    with col4:
-        st.text(recommended_movie_names[3])
-        st.image(recommended_movie_posters[3])
-    with col5:
-        st.text(recommended_movie_names[4])
-        st.image(recommended_movie_posters[4])
+if st.button('Show Recommendation'):
+    recommended_movie_names, recommended_movie_posters = recommend(selected_movie)
+    if not recommended_movie_names:
+        st.error("Unable to generate recommendations for the selected movie.")
+    else:
+        st.balloons()
+        columns = st.columns(5)
+        for i, column in enumerate(columns):
+            with column:
+                safe_title = html.escape(recommended_movie_names[i], quote=True)
+                st.markdown(
+                    f"""
+                    <div>
+                        <img class="movie-poster" src="{recommended_movie_posters[i]}" alt="{safe_title}">
+                        <div class="movie-title">{safe_title}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
 
 
