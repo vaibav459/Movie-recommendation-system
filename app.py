@@ -46,6 +46,7 @@ st.markdown(
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
 POSTER_PLACEHOLDER_URL = "https://via.placeholder.com/500x750?text=No+Poster"
+LOTTIE_URL = "https://assets10.lottiefiles.com/packages/lf20_khzniaya.json"
 
 
 @st.cache_data
@@ -106,7 +107,7 @@ header_col, animation_col = st.columns([3, 1])
 with header_col:
     st.markdown('<h1 class="main-title">🎬 Cinemate Movie Recommender</h1>', unsafe_allow_html=True)
 with animation_col:
-    lottie_animation = load_lottie_url("https://assets10.lottiefiles.com/packages/lf20_khzniaya.json")
+    lottie_animation = load_lottie_url(LOTTIE_URL)
     if lottie_animation:
         st_lottie(lottie_animation, height=150, key="movie-lottie")
 
@@ -116,8 +117,11 @@ selected_movie = st.selectbox(
     movie_list
 )
 
+if not TMDB_API_KEY:
+    st.info("TMDB_API_KEY is not set. Placeholder posters will be shown.")
+
 if st.button('Show Recommendation'):
-    recommended_movie_names,recommended_movie_posters = recommend(selected_movie)
+    recommended_movie_names, recommended_movie_posters = recommend(selected_movie)
     st.balloons()
     columns = st.columns(5)
     for i, column in enumerate(columns):
