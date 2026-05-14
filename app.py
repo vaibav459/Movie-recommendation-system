@@ -70,7 +70,7 @@ def load_movies():
 def load_similarity():
     return joblib.load("similarity_compressed.joblib")
 
-@st.cache_data(ttl=3600)
+@st.cache_data(max_entries=1000)
 def fetch_poster(movie_id):
     if not TMDB_API_KEY:
         return POSTER_PLACEHOLDER_URL
@@ -123,7 +123,7 @@ selected_movie = st.selectbox(
 )
 
 if not TMDB_API_KEY:
-    st.warning("TMDB_API_KEY is not set. Placeholder posters will be shown.")
+    st.error("TMDB_API_KEY is not set. Placeholder posters will be shown.")
 
 if st.button('Show Recommendation'):
     recommended_movie_names, recommended_movie_posters = recommend(selected_movie)
@@ -135,11 +135,10 @@ if st.button('Show Recommendation'):
         for i, column in enumerate(columns):
             with column:
                 safe_title = html.escape(recommended_movie_names[i], quote=True)
-                safe_poster = html.escape(recommended_movie_posters[i], quote=True)
                 st.markdown(
                     f"""
                     <div>
-                        <img class="movie-poster" src="{safe_poster}" alt="{safe_title}">
+                        <img class="movie-poster" src="{recommended_movie_posters[i]}" alt="{safe_title}">
                         <div class="movie-title">{safe_title}</div>
                     </div>
                     """,
