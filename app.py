@@ -70,7 +70,7 @@ def load_movies():
 def load_similarity():
     return joblib.load("similarity_compressed.joblib")
 
-@st.cache_data
+@st.cache_data(ttl=3600)
 def fetch_poster(movie_id):
     if not TMDB_API_KEY:
         return POSTER_PLACEHOLDER_URL
@@ -89,10 +89,10 @@ def fetch_poster(movie_id):
     return full_path
 
 def recommend(movie):
-    movie_index = movies[movies['title'] == movie].index
-    if movie_index.empty:
+    matching_indices = movies[movies['title'] == movie].index
+    if matching_indices.empty:
         return [], []
-    index = movie_index[0]
+    index = matching_indices[0]
     distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
     recommended_movie_names = []
     recommended_movie_posters = []
