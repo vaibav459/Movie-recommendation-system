@@ -97,7 +97,7 @@ def recommend(movie):
         recommended_movie_posters.append(fetch_poster(movie_id))
         recommended_movie_names.append(movies.iloc[i[0]].title)
 
-    return recommended_movie_names,recommended_movie_posters
+    return recommended_movie_names, recommended_movie_posters
 
 
 movies = load_movies()
@@ -118,7 +118,7 @@ selected_movie = st.selectbox(
 )
 
 if not TMDB_API_KEY:
-    st.info("TMDB_API_KEY is not set. Placeholder posters will be shown.")
+    st.warning("TMDB_API_KEY is not set. Placeholder posters will be shown.")
 
 if st.button('Show Recommendation'):
     recommended_movie_names, recommended_movie_posters = recommend(selected_movie)
