@@ -1,4 +1,5 @@
 import pickle
+import os
 import streamlit as st
 import requests
 import joblib
@@ -43,11 +44,18 @@ st.markdown(
 )
 
 
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
+POSTER_PLACEHOLDER_URL = "https://via.placeholder.com/500x750?text=No+Poster"
+
+
+@st.cache_data
 def load_lottie_url(url):
-    response = requests.get(url, timeout=10)
-    if response.status_code != 200:
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except (requests.RequestException, ValueError):
         return None
-    return response.json()
 
 
 @st.cache_data
@@ -61,12 +69,19 @@ def load_similarity():
     return joblib.load("similarity_compressed.joblib")
 
 def fetch_poster(movie_id):
-    url = "https://api.themoviedb.org/3/movie/{}?api_key=db437781100e3d385ed8dcdf48082812&language=en-US".format(movie_id)
-    data = requests.get(url, timeout=10)
-    data = data.json()
+    if not TMDB_API_KEY:
+        return POSTER_PLACEHOLDER_URL
+    url = "https://api.themoviedb.org/3/movie/{}".format(movie_id)
+    params = {"api_key": TMDB_API_KEY, "language": "en-US"}
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return POSTER_PLACEHOLDER_URL
     poster_path = data.get('poster_path')
     if not poster_path:
-        return "https://via.placeholder.com/500x750?text=No+Poster"
+        return POSTER_PLACEHOLDER_URL
     full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
     return full_path
 
