@@ -2,12 +2,71 @@ import pickle
 import streamlit as st
 import requests
 import joblib
+from streamlit_lottie import st_lottie
+
+st.set_page_config(page_title="Cinemate | Movie Recommender", page_icon="🍿", layout="wide")
+
+st.markdown(
+    """
+<style>
+.main-title {
+    font-size: 3rem;
+    text-align: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+
+.movie-poster {
+    width: 100%;
+    border-radius: 10px;
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.movie-poster:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.movie-title {
+    text-align: center;
+    font-weight: 600;
+    margin-top: 8px;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+def load_lottie_url(url):
+    response = requests.get(url, timeout=10)
+    if response.status_code != 200:
+        return None
+    return response.json()
+
+
+@st.cache_data
+def load_movies():
+    with open("movies.pkl", "rb") as movie_file:
+        return pickle.load(movie_file)
+
+
+@st.cache_resource
+def load_similarity():
+    return joblib.load("similarity_compressed.joblib")
 
 def fetch_poster(movie_id):
     url = "https://api.themoviedb.org/3/movie/{}?api_key=db437781100e3d385ed8dcdf48082812&language=en-US".format(movie_id)
-    data = requests.get(url)
+    data = requests.get(url, timeout=10)
     data = data.json()
-    poster_path = data['poster_path']
+    poster_path = data.get('poster_path')
+    if not poster_path:
+        return "https://via.placeholder.com/500x750?text=No+Poster"
     full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
     return full_path
 
@@ -25,9 +84,16 @@ def recommend(movie):
     return recommended_movie_names,recommended_movie_posters
 
 
-st.header('Movie Recommender System')
-movies = pickle.load(open('movies.pkl','rb'))
-similarity = joblib.load('similarity_compressed.joblib')
+movies = load_movies()
+similarity = load_similarity()
+
+header_col, animation_col = st.columns([3, 1])
+with header_col:
+    st.markdown('<h1 class="main-title">🎬 Cinemate Movie Recommender</h1>', unsafe_allow_html=True)
+with animation_col:
+    lottie_animation = load_lottie_url("https://assets10.lottiefiles.com/packages/lf20_khzniaya.json")
+    if lottie_animation:
+        st_lottie(lottie_animation, height=150, key="movie-lottie")
 
 movie_list = movies['title'].values
 selected_movie = st.selectbox(
@@ -37,23 +103,19 @@ selected_movie = st.selectbox(
 
 if st.button('Show Recommendation'):
     recommended_movie_names,recommended_movie_posters = recommend(selected_movie)
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.text(recommended_movie_names[0])
-        st.image(recommended_movie_posters[0])
-    with col2:
-        st.text(recommended_movie_names[1])
-        st.image(recommended_movie_posters[1])
-
-    with col3:
-        st.text(recommended_movie_names[2])
-        st.image(recommended_movie_posters[2])
-    with col4:
-        st.text(recommended_movie_names[3])
-        st.image(recommended_movie_posters[3])
-    with col5:
-        st.text(recommended_movie_names[4])
-        st.image(recommended_movie_posters[4])
+    st.balloons()
+    columns = st.columns(5)
+    for i, column in enumerate(columns):
+        with column:
+            st.markdown(
+                f"""
+                <div>
+                    <img class="movie-poster" src="{recommended_movie_posters[i]}" alt="{recommended_movie_names[i]}">
+                    <div class="movie-title">{recommended_movie_names[i]}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
 
